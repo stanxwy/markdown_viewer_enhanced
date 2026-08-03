@@ -188,13 +188,13 @@ describe('Options 设置页增强', () => {
   // ========== Tier 3: 任务特定断言 ==========
 
   describe('Tier 3 — Options 页增强场景', () => {
-    test('BT-OPTIONS.15 功能设置卡片包含全部 10 个设置项', () => {
+    test('BT-OPTIONS.15 功能设置卡片包含全部 11 个设置项', () => {
       // 计算功能设置卡片中的所有设置行
       const featureCard = doc.querySelectorAll('.settings-card')[3]; // 第4个卡片是功能设置
       expect(featureCard).toBeTruthy();
       const rows = featureCard.querySelectorAll('.setting-row');
-      // 目录 + 目录位置 + 面板模式 + 文档对齐 + 数学 + Mermaid + PlantUML + Graphviz + 行号 + 自动检测 = 10
-      expect(rows.length).toBe(10);
+      // 目录 + 目录位置 + 面板模式 + 文档对齐 + 数学 + Mermaid + PlantUML + Graphviz + 行号 + 代码块折叠 + 自动检测 = 11
+      expect(rows.length).toBe(11);
     });
 
     test('BT-OPTIONS.16 面板模式和文档对齐使用胶囊按钮组样式', () => {

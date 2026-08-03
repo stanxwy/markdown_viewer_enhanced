@@ -37,6 +37,9 @@
     'code.copy.title': 'Copy code',
     'code.copied': '✅ Copied',
     'code.mermaidCopy.title': 'Copy Mermaid source',
+    'code.collapse': '🔽 Collapse',
+    'code.collapse.title': 'Collapse/Expand code',
+    'code.expand': '▶ Expand',
 
     // ========== Image Lightbox ==========
     'imagePreview.close': '✕ Close',
@@ -151,6 +154,7 @@
     'settings.plantuml': 'PlantUML Diagrams',
     'settings.graphviz': 'Graphviz Diagrams',
     'settings.lineNumbers': 'Show Line Numbers',
+    'settings.collapseCodeBlocks': 'Collapse Code Blocks',
     'settings.autoDetect': 'Auto-detect Markdown',
 
     // Language
@@ -200,6 +204,8 @@
     'options.mathJax.desc': 'Enable KaTeX to render LaTeX math formulas (experimental)',
     'options.lineNumbers.title': 'Show Line Numbers',
     'options.lineNumbers.desc': 'Display line numbers on the left side of code blocks',
+    'options.collapseCodeBlocks.title': 'Collapse Code Blocks',
+    'options.collapseCodeBlocks.desc': 'Collapse code blocks by default; click the expand button to view code',
     'options.autoDetect.title': 'Auto-detect Markdown',
     'options.autoDetect.desc': 'Automatically detect and render .md / .markdown files',
     'options.shortcuts.title': 'Shortcuts',
@@ -265,6 +271,7 @@
     'popup.mermaid': 'Mermaid Diagrams',
     'popup.mathJax': 'Math Rendering',
     'popup.lineNumbers': 'Show Line Numbers',
+    'popup.collapseCodeBlocks': 'Collapse Code Blocks',
     'popup.autoDetect': 'Auto-detect Markdown',
     'popup.resetBtn': '🔄 Reset',
     'popup.refreshBtn': '🔃 Refresh Page',

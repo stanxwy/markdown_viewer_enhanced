@@ -21,6 +21,7 @@
   const toggleMermaid = document.getElementById('toggleMermaid');
   const toggleMathJax = document.getElementById('toggleMathJax');
   const toggleLineNumbers = document.getElementById('toggleLineNumbers');
+  const toggleCollapseCodeBlocks = document.getElementById('toggleCollapseCodeBlocks');
   const toggleAutoDetect = document.getElementById('toggleAutoDetect');
   const btnReset = document.getElementById('btnReset');
   const btnRefresh = document.getElementById('btnRefresh');
@@ -126,6 +127,11 @@ lineHeightSlider.value = settings.lineHeight || 1.8;
     // 代码行号
     if (toggleLineNumbers) {
       toggleLineNumbers.checked = settings.showLineNumbers === true;
+    }
+
+    // 代码块默认折叠
+    if (toggleCollapseCodeBlocks) {
+      toggleCollapseCodeBlocks.checked = settings.collapseCodeBlocks === true;
     }
 
     // 自动检测
@@ -318,6 +324,14 @@ lineHeightSlider.value = settings.lineHeight || 1.8;
     if (toggleLineNumbers) {
       toggleLineNumbers.addEventListener('change', () => {
         currentSettings.showLineNumbers = toggleLineNumbers.checked;
+        saveSettings();
+      });
+    }
+
+    // 代码块默认折叠开关
+    if (toggleCollapseCodeBlocks) {
+      toggleCollapseCodeBlocks.addEventListener('change', () => {
+        currentSettings.collapseCodeBlocks = toggleCollapseCodeBlocks.checked;
         saveSettings();
       });
     }

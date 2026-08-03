@@ -21,6 +21,7 @@ fontSize: 18,             // 字体大小
   maxWidth: 1200,           // 内容最大宽度(px)
   fontFamily: 'system',     // 字体：system / serif / mono
   showLineNumbers: false,   // 代码块显示行号
+  collapseCodeBlocks: true, // 代码块默认折叠
   language: 'zh-CN',        // 界面语言：zh-CN / en
 };
 

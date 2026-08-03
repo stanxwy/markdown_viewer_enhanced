@@ -28,6 +28,7 @@
   const togglePlantUML = document.getElementById('togglePlantUML');
   const toggleGraphviz = document.getElementById('toggleGraphviz');
   const toggleLineNumbers = document.getElementById('toggleLineNumbers');
+  const toggleCollapseCodeBlocks = document.getElementById('toggleCollapseCodeBlocks');
   const toggleAutoDetect = document.getElementById('toggleAutoDetect');
   const typographyPreview = document.getElementById('typographyPreview');
   const btnReset = document.getElementById('btnReset');
@@ -149,6 +150,11 @@ lineHeightSlider.value = settings.lineHeight || 1.8;
     // 行号
     if (toggleLineNumbers) {
       toggleLineNumbers.checked = settings.showLineNumbers === true;
+    }
+
+    // 代码块默认折叠
+    if (toggleCollapseCodeBlocks) {
+      toggleCollapseCodeBlocks.checked = settings.collapseCodeBlocks === true;
     }
 
     // 自动检测
@@ -414,6 +420,14 @@ const lineHeight = currentSettings.lineHeight || 1.8;
       currentSettings.showLineNumbers = toggleLineNumbers.checked;
       scheduleAutoSave(0);
     });
+
+    // 代码块默认折叠开关
+    if (toggleCollapseCodeBlocks) {
+      toggleCollapseCodeBlocks.addEventListener('change', () => {
+        currentSettings.collapseCodeBlocks = toggleCollapseCodeBlocks.checked;
+        scheduleAutoSave(0);
+      });
+    }
 
     // 语言切换（下拉框）
     const langSelectEl = document.getElementById('langSelect');

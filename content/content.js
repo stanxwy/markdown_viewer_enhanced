@@ -44,6 +44,7 @@
     maxWidth: 1200,
     fontFamily: 'system',
     showLineNumbers: false,
+    collapseCodeBlocks: true,
     language: 'zh-CN',
   };
 
@@ -471,6 +472,11 @@
       // 行号类名：根据设置决定是否添加 show-line-numbers
       const lineNumClass = currentSettings.showLineNumbers ? ' show-line-numbers' : '';
 
+      // 代码块折叠：根据设置决定是否默认折叠
+      const collapseClass = currentSettings.collapseCodeBlocks ? ' code-collapsed' : '';
+      // 折叠状态下显示「展开」，展开状态下显示「折叠」
+      const collapseBtnText = currentSettings.collapseCodeBlocks ? t('code.expand') : t('code.collapse');
+
       /**
        * 将高亮后的 HTML 代码按行包裹 <span class="code-line">
        * 以支持 CSS counter 行号显示
@@ -537,7 +543,7 @@
       if (lang && typeof hljs !== 'undefined' && hljs.getLanguage(lang)) {
         try {
           const highlighted = hljs.highlight(code, { language: lang }).value;
-          return `<div class="code-block${lineNumClass}"><div class="code-header"><span class="code-lang">${lang}</span><button class="code-copy-btn" title="${t('code.copy.title')}">${t('code.copy')}</button></div><pre><code class="hljs language-${lang}">${wrapLines(highlighted, lang)}</code></pre></div>`;
+          return `<div class="code-block${lineNumClass}${collapseClass}"><div class="code-header"><span class="code-lang">${lang}</span><div class="code-header-actions"><button class="code-collapse-btn" title="${t('code.collapse.title')}">${collapseBtnText}</button><button class="code-copy-btn" title="${t('code.copy.title')}">${t('code.copy')}</button></div></div><pre><code class="hljs language-${lang}">${wrapLines(highlighted, lang)}</code></pre></div>`;
         } catch (e) {
           // 高亮失败，使用默认渲染
         }
@@ -547,13 +553,13 @@
       if (typeof hljs !== 'undefined' && code.length <= 10000) {
         try {
           const highlighted = hljs.highlightAuto(code).value;
-          return `<div class="code-block${lineNumClass}"><div class="code-header"><span class="code-lang">${lang || 'code'}</span><button class="code-copy-btn" title="${t('code.copy.title')}">${t('code.copy')}</button></div><pre><code class="hljs">${wrapLines(highlighted, lang)}</code></pre></div>`;
+          return `<div class="code-block${lineNumClass}${collapseClass}"><div class="code-header"><span class="code-lang">${lang || 'code'}</span><div class="code-header-actions"><button class="code-collapse-btn" title="${t('code.collapse.title')}">${collapseBtnText}</button><button class="code-copy-btn" title="${t('code.copy.title')}">${t('code.copy')}</button></div></div><pre><code class="hljs">${wrapLines(highlighted, lang)}</code></pre></div>`;
         } catch (e) {
           // 忽略
         }
       }
 
-      return `<div class="code-block${lineNumClass}"><div class="code-header"><span class="code-lang">${lang || 'code'}</span><button class="code-copy-btn" title="${t('code.copy.title')}">${t('code.copy')}</button></div><pre><code>${wrapLines(escapeHtml(code))}</code></pre></div>`;
+      return `<div class="code-block${lineNumClass}${collapseClass}"><div class="code-header"><span class="code-lang">${lang || 'code'}</span><div class="code-header-actions"><button class="code-collapse-btn" title="${t('code.collapse.title')}">${collapseBtnText}</button><button class="code-copy-btn" title="${t('code.copy.title')}">${t('code.copy')}</button></div></div><pre><code>${wrapLines(escapeHtml(code))}</code></pre></div>`;
     };
 
     // 自定义链接渲染 - 外部链接新窗口打开
@@ -1314,6 +1320,16 @@ console.<span class="hljs-title function_">log</span>(<span class="hljs-string">
                     </div>
                     <label class="md-stg-toggle-switch">
                       <input type="checkbox" id="stg-showLineNumbers" class="md-stg-bool-toggle" data-key="showLineNumbers">
+                      <span class="md-stg-toggle-slider"></span>
+                    </label>
+                  </div>
+                  <div class="md-settings-item">
+                    <div class="md-settings-item-left">
+                      <span class="md-settings-item-icon">📦</span>
+                      <span class="md-settings-label">${t('settings.collapseCodeBlocks')}</span>
+                    </div>
+                    <label class="md-stg-toggle-switch">
+                      <input type="checkbox" id="stg-collapseCodeBlocks" class="md-stg-bool-toggle" data-key="collapseCodeBlocks">
                       <span class="md-stg-toggle-slider"></span>
                     </label>
                   </div>
@@ -2233,6 +2249,16 @@ console.<span class="hljs-title function_">log</span>(<span class="hljs-string">
       }
     });
 
+    // 代码块折叠/展开按钮
+    document.addEventListener('click', (e) => {
+      if (e.target.classList.contains('code-collapse-btn')) {
+        const codeBlock = e.target.closest('.code-block');
+        if (!codeBlock) return;
+        const isCollapsed = codeBlock.classList.toggle('code-collapsed');
+        e.target.textContent = isCollapsed ? t('code.expand') : t('code.collapse');
+      }
+    });
+
     // 代码复制按钮
     document.addEventListener('click', (e) => {
       // 代码块复制
@@ -2865,6 +2891,7 @@ console.<span class="hljs-title function_">log</span>(<span class="hljs-string">
       'stg-enablePlantUML': currentSettings.enablePlantUML !== false,
       'stg-enableGraphviz': currentSettings.enableGraphviz !== false,
       'stg-showLineNumbers': currentSettings.showLineNumbers === true,
+      'stg-collapseCodeBlocks': currentSettings.collapseCodeBlocks === true,
       'stg-autoDetect': currentSettings.autoDetect !== false,
     };
     Object.entries(boolGroupStates).forEach(([id, isOn]) => {
@@ -3006,6 +3033,18 @@ console.<span class="hljs-title function_">log</span>(<span class="hljs-string">
           const tocPosRow = document.getElementById('stg-tocPosRow');
           if (tocPosRow) tocPosRow.style.display = isOn ? 'flex' : 'none';
         }
+        // collapseCodeBlocks：立即重置所有代码块的折叠状态（applySettings 的变化检测在
+        // 内联面板路径下因 currentSettings 已被提前修改而失效，故在此直接应用）
+        if (key === 'collapseCodeBlocks') {
+          const app = document.getElementById('md-viewer-app');
+          if (app) {
+            app.querySelectorAll('.code-block').forEach(block => {
+              block.classList.toggle('code-collapsed', isOn);
+              const btn = block.querySelector('.code-collapse-btn');
+              if (btn) btn.textContent = isOn ? t('code.expand') : t('code.collapse');
+            });
+          }
+        }
         // autoDetect 仅影响后续页面检测，无需重新应用当前页面样式
         if (key !== 'autoDetect') {
           applySettings(currentSettings);
@@ -3120,6 +3159,17 @@ console.<span class="hljs-title function_">log</span>(<span class="hljs-string">
       const codeBlocks = app.querySelectorAll('.code-block');
       codeBlocks.forEach(block => {
         block.classList.toggle('show-line-numbers', !!currentSettings.showLineNumbers);
+      });
+    }
+
+    // 仅在「代码块默认折叠」设置变化时重置折叠状态（避免覆盖用户手动展开/折叠的操作）
+    if (oldSettings.collapseCodeBlocks !== currentSettings.collapseCodeBlocks && app) {
+      const codeBlocks = app.querySelectorAll('.code-block');
+      codeBlocks.forEach(block => {
+        const collapsed = !!currentSettings.collapseCodeBlocks;
+        block.classList.toggle('code-collapsed', collapsed);
+        const btn = block.querySelector('.code-collapse-btn');
+        if (btn) btn.textContent = collapsed ? t('code.expand') : t('code.collapse');
       });
     }
 

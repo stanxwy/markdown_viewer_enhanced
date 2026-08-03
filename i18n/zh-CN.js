@@ -37,6 +37,9 @@
     'code.copy.title': '复制代码',
     'code.copied': '✅ 已复制',
     'code.mermaidCopy.title': '复制 Mermaid 源码',
+    'code.collapse': '🔽 折叠',
+    'code.collapse.title': '折叠/展开代码',
+    'code.expand': '▶ 展开',
 
     // ========== 图片灯箱 ==========
     'imagePreview.close': '✕ 关闭',
@@ -151,6 +154,7 @@
     'settings.plantuml': 'PlantUML 图表',
     'settings.graphviz': 'Graphviz 图表',
     'settings.lineNumbers': '显示代码行号',
+    'settings.collapseCodeBlocks': '代码块默认折叠',
     'settings.autoDetect': '自动检测 Markdown',
 
     // 语言
@@ -200,6 +204,8 @@
     'options.mathJax.desc': '启用 MathJax/KaTeX 渲染 LaTeX 数学公式（实验性功能）',
     'options.lineNumbers.title': '显示代码行号',
     'options.lineNumbers.desc': '在代码块左侧显示行号，方便代码引用和阅读',
+    'options.collapseCodeBlocks.title': '代码块默认折叠',
+    'options.collapseCodeBlocks.desc': '代码块默认折叠，点击旁边的展开按钮可查看代码',
     'options.autoDetect.title': '自动检测 Markdown',
     'options.autoDetect.desc': '自动识别 .md / .markdown 等扩展名的文件并渲染',
     'options.shortcuts.title': '快捷键',
@@ -265,6 +271,7 @@
     'popup.mermaid': 'Mermaid 图表',
     'popup.mathJax': '数学公式渲染',
     'popup.lineNumbers': '显示代码行号',
+    'popup.collapseCodeBlocks': '代码块默认折叠',
     'popup.autoDetect': '自动检测 Markdown',
     'popup.resetBtn': '🔄 重置',
     'popup.refreshBtn': '🔃 刷新页面',

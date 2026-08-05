@@ -44,6 +44,8 @@
     // ========== 图片灯箱 ==========
     'imagePreview.close': '✕ 关闭',
     'lightbox.close': '✕ 关闭',
+    'lightbox.prev': '上一张',
+    'lightbox.next': '下一张',
 
     // ========== Mermaid 预览 ==========
     'mermaid.close': '✕ 关闭',

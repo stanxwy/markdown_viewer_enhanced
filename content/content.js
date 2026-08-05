@@ -2306,19 +2306,54 @@ console.<span class="hljs-title function_">log</span>(<span class="hljs-string">
       let scale = 1, translateX = 0, translateY = 0;
       let isDragging = false, dragMoved = false, startX = 0, startY = 0;
       let tipTimer = null;
+      let clickTimer = null;
 
       // 创建 DOM
       const overlay = document.createElement('div');
       overlay.className = 'md-lightbox-overlay';
       overlay.innerHTML = `
         <img class="md-lightbox-img" src="${src}" draggable="false" />
+        <button class="md-lightbox-nav md-lightbox-prev" aria-label="${t('lightbox.prev')}">‹</button>
+        <button class="md-lightbox-nav md-lightbox-next" aria-label="${t('lightbox.next')}">›</button>
         <button class="md-lightbox-close">${t('lightbox.close')}</button>
         <div class="md-lightbox-zoom-tip"></div>
+        <div class="md-lightbox-counter"></div>
       `;
       document.body.appendChild(overlay);
 
       const img = overlay.querySelector('.md-lightbox-img');
       const zoomTip = overlay.querySelector('.md-lightbox-zoom-tip');
+      const navPrev = overlay.querySelector('.md-lightbox-prev');
+      const navNext = overlay.querySelector('.md-lightbox-next');
+      const counter = overlay.querySelector('.md-lightbox-counter');
+
+      // 收集正文内所有图片，组成画廊用于上一张/下一张切换
+      const galleryImages = Array.from(document.querySelectorAll('#md-content img'))
+        .filter(im => !im.closest('.md-lightbox-overlay') && !im.closest('#md-mermaid-overlay'));
+      let currentIndex = galleryImages.findIndex(im => im.src === src);
+      if (currentIndex < 0) currentIndex = 0;
+
+      function updateGalleryUI() {
+        const multi = galleryImages.length > 1;
+        navPrev.style.display = multi ? '' : 'none';
+        navNext.style.display = multi ? '' : 'none';
+        counter.style.display = multi ? '' : 'none';
+        if (multi) counter.textContent = (currentIndex + 1) + ' / ' + galleryImages.length;
+      }
+
+      function showImage(i) {
+        if (galleryImages.length === 0) return;
+        currentIndex = (i + galleryImages.length) % galleryImages.length;
+        img.src = galleryImages[currentIndex].src;
+        scale = 1; translateX = 0; translateY = 0;
+        updateTransform();
+        updateGalleryUI();
+      }
+
+      function showPrev() { showImage(currentIndex - 1); }
+      function showNext() { showImage(currentIndex + 1); }
+
+      updateGalleryUI();
 
       // 淡入
       requestAnimationFrame(() => overlay.classList.add('active'));
@@ -2397,16 +2432,32 @@ console.<span class="hljs-title function_">log</span>(<span class="hljs-string">
       // 双击还原
       img.addEventListener('dblclick', (e) => {
         e.stopPropagation();
+        clearTimeout(clickTimer);
         scale = 1; translateX = 0; translateY = 0;
         updateTransform();
         showZoomTip();
       });
 
-      // 点击遮罩/关闭按钮 关闭（拖拽不触发）
+      // 点击遮罩/关闭按钮 关闭（拖拽不触发）；点击图片左右半区 / 翻页按钮切换上一张下一张
       overlay.addEventListener('click', (e) => {
         if (dragMoved) return;
         if (e.target === overlay || e.target.classList.contains('md-lightbox-close')) {
           closeLightbox();
+          return;
+        }
+        // 左右翻页按钮
+        if (e.target.classList.contains('md-lightbox-prev')) { showPrev(); return; }
+        if (e.target.classList.contains('md-lightbox-next')) { showNext(); return; }
+        // 点击图片：左半区 = 上一张，右半区 = 下一张（仅在未缩放时，避免与拖拽/双击冲突）
+        if (e.target.classList.contains('md-lightbox-img') && galleryImages.length > 1 && scale === 1) {
+          const clientX = e.clientX;
+          // 延迟执行，避免双击（重置缩放）被误判为翻页
+          clearTimeout(clickTimer);
+          clickTimer = setTimeout(() => {
+            const rect = img.getBoundingClientRect();
+            if (clientX < rect.left + rect.width / 2) showPrev();
+            else showNext();
+          }, 220);
         }
       });
 
@@ -2434,6 +2485,12 @@ console.<span class="hljs-title function_">log</span>(<span class="hljs-string">
             e.preventDefault();
             scale = 1; translateX = 0; translateY = 0;
             updateTransform(); showZoomTip(); break;
+          case 'ArrowLeft':
+            if (galleryImages.length > 1) { e.preventDefault(); showPrev(); }
+            break;
+          case 'ArrowRight':
+            if (galleryImages.length > 1) { e.preventDefault(); showNext(); }
+            break;
           case 'Escape':
             e.preventDefault();
             closeLightbox(); break;

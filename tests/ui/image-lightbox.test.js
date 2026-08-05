@@ -60,6 +60,47 @@ describe('图片灯箱 (Image Lightbox)', () => {
     });
   });
 
+  // ==================== Tier 1.5: 翻页导航断言 ====================
+  describe('Tier 1.5 — 翻页导航断言', () => {
+
+    test('1.6 翻页按钮与计数器的 CSS 类名应存在于 content.css', () => {
+      const fs = require('fs');
+      const css = fs.readFileSync('styles/content.css', 'utf-8');
+      expect(css).toContain('.md-lightbox-nav');
+      expect(css).toContain('.md-lightbox-prev');
+      expect(css).toContain('.md-lightbox-next');
+      expect(css).toContain('.md-lightbox-counter');
+    });
+
+    test('1.7 openImageLightbox 源码应收集正文图片并定义 showPrev/showNext', () => {
+      const fs = require('fs');
+      const src = fs.readFileSync('content/content.js', 'utf-8');
+      expect(src).toContain("#md-content img");
+      expect(src).toContain('function showPrev()');
+      expect(src).toContain('function showNext()');
+      expect(src).toContain('md-lightbox-prev');
+      expect(src).toContain('md-lightbox-next');
+      expect(src).toContain('md-lightbox-counter');
+    });
+
+    test('1.8 键盘左右方向键应触发翻页（ArrowLeft / ArrowRight）', () => {
+      const fs = require('fs');
+      const src = fs.readFileSync('content/content.js', 'utf-8');
+      expect(src).toContain("'ArrowLeft'");
+      expect(src).toContain("'ArrowRight'");
+    });
+
+    test('1.9 i18n 语言包应包含 lightbox.prev / lightbox.next key', () => {
+      const fs = require('fs');
+      const zhCN = fs.readFileSync('i18n/zh-CN.js', 'utf-8');
+      const en = fs.readFileSync('i18n/en.js', 'utf-8');
+      expect(zhCN).toContain("'lightbox.prev'");
+      expect(zhCN).toContain("'lightbox.next'");
+      expect(en).toContain("'lightbox.prev'");
+      expect(en).toContain("'lightbox.next'");
+    });
+  });
+
   // ==================== Tier 2: 行为级断言 ====================
   describe('Tier 2 — 行为级断言', () => {
 
@@ -267,6 +308,115 @@ describe('图片灯箱 (Image Lightbox)', () => {
       document.dispatchEvent(new KeyboardEvent('keydown', { key: '+' }));
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'R' }));
       expect(overlay._lightbox.getScale()).toBe(1);
+    });
+  });
+
+  // ==================== Tier 2.5: 翻页行为断言 ====================
+  describe('Tier 2.5 — 翻页行为断言', () => {
+    let openImageLightbox;
+
+    beforeEach(() => {
+      document.body.innerHTML = `
+        <div id="md-content">
+          <img src="a.png" /><img src="b.png" /><img src="c.png" />
+        </div>`;
+      // 复刻真实 openImageLightbox 的画廊/翻页核心逻辑
+      openImageLightbox = function(src) {
+        const galleryImages = Array.from(document.querySelectorAll('#md-content img'))
+          .filter(im => !im.closest('.md-lightbox-overlay') && !im.closest('#md-mermaid-overlay'));
+        let currentIndex = galleryImages.findIndex(im => im.src === src);
+        if (currentIndex < 0) currentIndex = 0;
+
+        const overlay = document.createElement('div');
+        overlay.className = 'md-lightbox-overlay';
+        overlay.innerHTML = `
+          <img class="md-lightbox-img" src="${src}" draggable="false" />
+          <button class="md-lightbox-nav md-lightbox-prev">‹</button>
+          <button class="md-lightbox-nav md-lightbox-next">›</button>
+          <button class="md-lightbox-close">X</button>
+          <div class="md-lightbox-zoom-tip"></div>
+          <div class="md-lightbox-counter"></div>`;
+        document.body.appendChild(overlay);
+
+        const img = overlay.querySelector('.md-lightbox-img');
+        const counter = overlay.querySelector('.md-lightbox-counter');
+
+        function updateGalleryUI() {
+          const multi = galleryImages.length > 1;
+          overlay.querySelector('.md-lightbox-prev').style.display = multi ? '' : 'none';
+          overlay.querySelector('.md-lightbox-next').style.display = multi ? '' : 'none';
+          counter.style.display = multi ? '' : 'none';
+          if (multi) counter.textContent = (currentIndex + 1) + ' / ' + galleryImages.length;
+        }
+        function showImage(i) {
+          if (galleryImages.length === 0) return;
+          currentIndex = (i + galleryImages.length) % galleryImages.length;
+          img.src = galleryImages[currentIndex].src;
+          updateGalleryUI();
+        }
+        function showPrev() { showImage(currentIndex - 1); }
+        function showNext() { showImage(currentIndex + 1); }
+        updateGalleryUI();
+
+        overlay.addEventListener('click', (e) => {
+          if (e.target.classList.contains('md-lightbox-prev')) { showPrev(); return; }
+          if (e.target.classList.contains('md-lightbox-next')) { showNext(); return; }
+          if (e.target.classList.contains('md-lightbox-img') && galleryImages.length > 1) {
+            const rect = img.getBoundingClientRect();
+            if (e.clientX < rect.left + rect.width / 2) showPrev();
+            else showNext();
+          }
+        });
+
+        overlay._lb = { getIndex: () => currentIndex, getCounter: () => counter.textContent, getSrc: () => img.src };
+      };
+    });
+
+    afterEach(() => { document.body.innerHTML = ''; });
+
+    test('2.13 多张图片时应显示左右翻页按钮与计数', () => {
+      const imgs = document.querySelectorAll('#md-content img');
+      openImageLightbox(imgs[1].src); // 打开第二张
+      const overlay = document.querySelector('.md-lightbox-overlay');
+      expect(overlay.querySelector('.md-lightbox-prev').style.display).not.toBe('none');
+      expect(overlay.querySelector('.md-lightbox-next').style.display).not.toBe('none');
+      expect(overlay._lb.getCounter()).toBe('2 / 3');
+    });
+
+    test('2.14 点击右侧翻页按钮应切换到下一张', () => {
+      const imgs = document.querySelectorAll('#md-content img');
+      openImageLightbox(imgs[0].src); // 打开第一张
+      const overlay = document.querySelector('.md-lightbox-overlay');
+      overlay.querySelector('.md-lightbox-next').click();
+      expect(overlay._lb.getIndex()).toBe(1);
+      expect(overlay._lb.getCounter()).toBe('2 / 3');
+    });
+
+    test('2.15 点击左侧翻页按钮应切换到上一张', () => {
+      const imgs = document.querySelectorAll('#md-content img');
+      openImageLightbox(imgs[1].src); // 打开第二张
+      const overlay = document.querySelector('.md-lightbox-overlay');
+      overlay.querySelector('.md-lightbox-prev').click();
+      expect(overlay._lb.getIndex()).toBe(0);
+      expect(overlay._lb.getCounter()).toBe('1 / 3');
+    });
+
+    test('2.16 翻页应在首尾环绕（最后一张点下一张回到第一张）', () => {
+      const imgs = document.querySelectorAll('#md-content img');
+      openImageLightbox(imgs[2].src); // 打开第三张
+      const overlay = document.querySelector('.md-lightbox-overlay');
+      overlay.querySelector('.md-lightbox-next').click();
+      expect(overlay._lb.getIndex()).toBe(0);
+      expect(overlay._lb.getCounter()).toBe('1 / 3');
+    });
+
+    test('2.17 仅一张图片时不应显示翻页按钮与计数', () => {
+      document.body.innerHTML = '<div id="md-content"><img src="solo.png" /></div>';
+      const solo = document.querySelector('#md-content img');
+      openImageLightbox(solo.src);
+      const overlay = document.querySelector('.md-lightbox-overlay');
+      expect(overlay.querySelector('.md-lightbox-prev').style.display).toBe('none');
+      expect(overlay.querySelector('.md-lightbox-counter').style.display).toBe('none');
     });
   });
 

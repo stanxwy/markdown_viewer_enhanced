@@ -44,6 +44,8 @@
     // ========== Image Lightbox ==========
     'imagePreview.close': '✕ Close',
     'lightbox.close': '✕ Close',
+    'lightbox.prev': 'Previous',
+    'lightbox.next': 'Next',
 
     // ========== Mermaid Preview ==========
     'mermaid.close': '✕ Close',

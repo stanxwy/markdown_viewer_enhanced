@@ -2055,6 +2055,54 @@ a:hover > .md-image {
   opacity: 1;
 }
 
+/* 灯箱左右翻页按钮 */
+.md-lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  line-height: 1;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.2s;
+  z-index: 10001;
+  user-select: none;
+}
+
+.md-lightbox-nav:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.md-lightbox-prev {
+  left: 24px;
+}
+
+.md-lightbox-next {
+  right: 24px;
+}
+
+/* 灯箱图片计数（第 X / Y 张） */
+.md-lightbox-counter {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  padding: 6px 14px;
+  font-size: 14px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 20px;
+  pointer-events: none;
+  z-index: 10001;
+}
+
 /* 图片 hover 效果（内容区域内的图片） */
 #md-content img {
   cursor: zoom-in;

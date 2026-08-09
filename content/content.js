@@ -1141,7 +1141,7 @@
                   </div>
                   <div class="md-stg-slider-row">
                     <span class="md-stg-slider-label">${t('settings.lineHeight.compact')}</span>
-    <input type="range" id="stg-lineHeight" min="1.2" max="2.4" step="0.1" value="1.8">
+    <input type="range" id="stg-lineHeight" min="1.0" max="2.4" step="0.1" value="1.8">
                     <span class="md-stg-slider-label">${t('settings.lineHeight.loose')}</span>
                     <span class="md-stg-slider-value" id="stg-lineHeightVal">1.8</span>
                   </div>

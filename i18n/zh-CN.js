@@ -37,6 +37,7 @@
     'code.copy.title': '复制代码',
     'code.copied': '✅ 已复制',
     'code.mermaidCopy.title': '复制 Mermaid 源码',
+    'code.mermaidViewSource.title': '查看 Mermaid 源码',
     'code.collapse': '🔽 折叠',
     'code.collapse.title': '折叠/展开代码',
     'code.expand': '▶ 展开',

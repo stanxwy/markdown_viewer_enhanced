@@ -448,6 +448,7 @@
         const base64Code = btoa(unescape(encodeURIComponent(code)));
         return `<div class="mermaid-container">
           <div class="mermaid" data-source="${base64Code}"></div>
+          <button class="mermaid-view-source-btn" title="${t('code.mermaidViewSource.title')}">🔍</button>
           <button class="mermaid-copy-btn" title="${t('code.mermaidCopy.title')}">📋</button>
           <pre class="mermaid-source" style="display:none"><code>${escapeHtml(code)}</code></pre>
         </div>`;
@@ -1959,6 +1960,49 @@ console.<span class="hljs-title function_">log</span>(<span class="hljs-string">
     }
   }
 
+  // ==================== Mermaid 源码查看器 ====================
+
+  /**
+   * 打开 Mermaid 源码查看弹窗
+   */
+  function openMermaidSourceViewer(sourceCode) {
+    // 移除已有的查看器
+    const existing = document.getElementById('md-mermaid-source-overlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'md-mermaid-source-overlay';
+    overlay.className = 'md-mermaid-source-overlay';
+    overlay.innerHTML = `
+      <div class="md-mermaid-source-dialog">
+        <div class="md-mermaid-source-header">
+          <span class="md-mermaid-source-title">${t('code.mermaidViewSource.title')}</span>
+          <button class="md-mermaid-source-close" title="${t('mermaid.close')}">✕</button>
+        </div>
+        <pre class="md-mermaid-source-content"><code>${escapeHtml(sourceCode)}</code></pre>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    const closeBtn = overlay.querySelector('.md-mermaid-source-close');
+    const close = () => overlay.remove();
+
+    closeBtn.addEventListener('click', close);
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) close();
+    });
+
+    // ESC 关闭
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        close();
+        document.removeEventListener('keydown', onKey);
+      }
+    };
+    document.addEventListener('keydown', onKey);
+  }
+
   // ==================== 事件绑定 ====================
 
   /**
@@ -2288,6 +2332,16 @@ console.<span class="hljs-title function_">log</span>(<span class="hljs-string">
             copyToClipboard(source.textContent);
             e.target.textContent = '✅';
             setTimeout(() => { e.target.textContent = '📋'; }, 2000);
+          }
+        }
+      }
+      // Mermaid 查看源码
+      if (e.target.classList.contains('mermaid-view-source-btn')) {
+        const container = e.target.closest('.mermaid-container');
+        if (container) {
+          const source = container.querySelector('.mermaid-source code');
+          if (source) {
+            openMermaidSourceViewer(source.textContent);
           }
         }
       }

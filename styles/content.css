@@ -1746,6 +1746,20 @@ html:has(.theme-dark) {
 .mermaid-copy-btn {
   position: absolute;
   top: 8px;
+  right: 50px;
+  padding: 4px 8px;
+  font-size: 14px;
+  border: 1px solid #d1d5da;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.mermaid-view-source-btn {
+  position: absolute;
+  top: 8px;
   right: 8px;
   padding: 4px 8px;
   font-size: 14px;
@@ -1757,11 +1771,13 @@ html:has(.theme-dark) {
   transition: opacity 0.2s;
 }
 
-.mermaid-container:hover .mermaid-copy-btn {
+.mermaid-container:hover .mermaid-copy-btn,
+.mermaid-container:hover .mermaid-view-source-btn {
   opacity: 1;
 }
 
-.theme-dark .mermaid-copy-btn {
+.theme-dark .mermaid-copy-btn,
+.theme-dark .mermaid-view-source-btn {
   background: #2d2d2d;
   border-color: #444;
 }
@@ -1780,6 +1796,107 @@ html:has(.theme-dark) {
   border-radius: 4px;
   overflow-x: auto;
   font-size: 13px;
+}
+
+/* ========== Mermaid 源码查看弹窗 ========== */
+.md-mermaid-source-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 24px;
+}
+
+.md-mermaid-source-dialog {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  width: 100%;
+  max-width: 860px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.md-mermaid-source-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.md-mermaid-source-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.md-mermaid-source-close {
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 4px 8px;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.md-mermaid-source-close:hover {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+.md-mermaid-source-content {
+  margin: 0;
+  padding: 18px;
+  overflow: auto;
+  flex: 1;
+  background: #fafafa;
+  font-family: 'Menlo', 'Monaco', 'Consolas', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #1f2937;
+  white-space: pre;
+  tab-size: 2;
+}
+
+.theme-dark .md-mermaid-source-overlay {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.theme-dark .md-mermaid-source-dialog {
+  background: #1f2937;
+  border: 1px solid #374151;
+}
+
+.theme-dark .md-mermaid-source-header {
+  background: #111827;
+  border-bottom-color: #374151;
+}
+
+.theme-dark .md-mermaid-source-title {
+  color: #f9fafb;
+}
+
+.theme-dark .md-mermaid-source-close {
+  color: #9ca3af;
+}
+
+.theme-dark .md-mermaid-source-close:hover {
+  background: #374151;
+  color: #f9fafb;
+}
+
+.theme-dark .md-mermaid-source-content {
+  background: #111827;
+  color: #e5e7eb;
 }
 
 .mermaid-error .error-message {

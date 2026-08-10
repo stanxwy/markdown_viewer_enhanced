@@ -37,6 +37,7 @@
     'code.copy.title': 'Copy code',
     'code.copied': '✅ Copied',
     'code.mermaidCopy.title': 'Copy Mermaid source',
+    'code.mermaidViewSource.title': 'View Mermaid source',
     'code.collapse': '🔽 Collapse',
     'code.collapse.title': 'Collapse/Expand code',
     'code.expand': '▶ Expand',

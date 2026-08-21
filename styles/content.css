@@ -3403,3 +3403,266 @@ ul:has(> .task-list-item) {
     font-size: 14px;
   }
 }
+
+/* ==================== 文件面板（文件列表 + 文件夹拖放）==================== */
+.sidebar-tabbar {
+  display: flex;
+  align-items: center;
+}
+
+.files-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px 6px;
+  flex-shrink: 0;
+}
+
+.files-select-btn {
+  flex: 1;
+  padding: 7px 10px;
+  font-size: 13px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  background: #fff;
+  color: #24292f;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.files-select-btn:hover {
+  background: #f3f4f6;
+  border-color: #0366d6;
+}
+
+.files-refresh-btn {
+  padding: 7px 10px;
+  font-size: 14px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  background: #fff;
+  color: #57606a;
+  cursor: pointer;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.files-refresh-btn:hover {
+  background: #f3f4f6;
+  color: #0366d6;
+}
+
+.files-folder-name {
+  padding: 0 12px 6px;
+  font-size: 12px;
+  color: #57606a;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.files-search-input {
+  margin: 0 10px 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  background: #fff;
+  color: #24292f;
+  outline: none;
+  flex-shrink: 0;
+}
+
+.files-search-input:focus {
+  border-color: #0366d6;
+  box-shadow: 0 0 0 2px rgba(3, 102, 214, 0.15);
+}
+
+.files-count {
+  padding: 0 12px 6px;
+  font-size: 11px;
+  color: #8b949e;
+  flex-shrink: 0;
+}
+
+.files-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 6px 10px;
+  min-height: 0;
+}
+
+.file-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.file-item:hover {
+  background: rgba(3, 102, 214, 0.06);
+}
+
+.file-item.active {
+  background: rgba(3, 102, 214, 0.12);
+}
+
+.file-item .file-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.file-item .file-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.file-item .file-name {
+  font-size: 13px;
+  color: #24292f;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-item .file-path {
+  font-size: 11px;
+  color: #8b949e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.files-empty {
+  padding: 24px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: #8b949e;
+  line-height: 1.6;
+}
+
+/* 文件夹拖放遮罩 */
+.md-folder-drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(3, 102, 214, 0.12);
+}
+
+.md-folder-drop-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px 60px;
+  border: 3px dashed #0366d6;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #0366d6;
+}
+
+.md-folder-drop-icon {
+  font-size: 48px;
+}
+
+.md-folder-drop-text {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* 暗色主题 */
+.theme-dark .files-select-btn,
+.theme-dark .files-refresh-btn {
+  background: #21262d;
+  border-color: #30363d;
+  color: #e6edf3;
+}
+
+.theme-dark .files-select-btn:hover,
+.theme-dark .files-refresh-btn:hover {
+  background: #30363d;
+  border-color: #58a6ff;
+}
+
+.theme-dark .files-folder-name {
+  color: #8b949e;
+}
+
+.theme-dark .files-search-input {
+  background: #0d1117;
+  border-color: #30363d;
+  color: #e6edf3;
+}
+
+.theme-dark .files-search-input:focus {
+  border-color: #58a6ff;
+  box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2);
+}
+
+.theme-dark .files-count {
+  color: #6e7681;
+}
+
+.theme-dark .file-item:hover {
+  background: rgba(88, 166, 255, 0.08);
+}
+
+.theme-dark .file-item.active {
+  background: rgba(88, 166, 255, 0.16);
+}
+
+.theme-dark .file-item .file-name {
+  color: #e6edf3;
+}
+
+.theme-dark .file-item .file-path {
+  color: #6e7681;
+}
+
+.theme-dark .files-empty {
+  color: #6e7681;
+}
+
+.theme-dark .md-folder-drop-inner {
+  background: rgba(13, 17, 23, 0.94);
+  border-color: #58a6ff;
+  color: #58a6ff;
+}
+
+/* 自动主题（浅色窗口） */
+.theme-auto .files-select-btn,
+.theme-auto .files-refresh-btn {
+  background: #fff;
+  border-color: #d0d7de;
+  color: #24292f;
+}
+
+.theme-auto .files-select-btn:hover,
+.theme-auto .files-refresh-btn:hover {
+  background: #f3f4f6;
+  border-color: #0366d6;
+}
+
+.theme-auto .files-search-input {
+  background: #fff;
+  border-color: #d0d7de;
+  color: #24292f;
+}
+
+.theme-auto .theme-dark .files-select-btn,
+.theme-auto .theme-dark .files-refresh-btn {
+  background: #21262d;
+  border-color: #30363d;
+  color: #e6edf3;
+}

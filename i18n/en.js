@@ -279,6 +279,20 @@
     'popup.resetBtn': '🔄 Reset',
     'popup.refreshBtn': '🔃 Refresh Page',
     'popup.language': 'Language',
+
+    // ========== Files Panel ==========
+    'sidebar.tab.toc': 'Outline',
+    'sidebar.tab.files': 'Files',
+    'files.selectFolder': 'Select Folder',
+    'files.selectFolder.title': 'Select a folder containing Markdown documents',
+    'files.refresh': 'Reload',
+    'files.folderLabel': 'Folder',
+    'files.search.placeholder': 'Search files…',
+    'files.empty': 'Drag a folder here, or click "Select Folder"',
+    'files.emptyDrop': 'Release to load Markdown documents in this folder',
+    'files.documents': 'documents',
+    'files.openFailed': 'Failed to read file',
+    'files.noFolderApi': 'This browser does not support folder picker. Please drag a folder into the window.',
   };
 
   // Export

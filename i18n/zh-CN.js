@@ -279,6 +279,20 @@
     'popup.resetBtn': '🔄 重置',
     'popup.refreshBtn': '🔃 刷新页面',
     'popup.language': '语言',
+
+    // ========== 文件面板 ==========
+    'sidebar.tab.toc': '大纲',
+    'sidebar.tab.files': '文件',
+    'files.selectFolder': '选择文件夹',
+    'files.selectFolder.title': '选择包含 Markdown 文档的文件夹',
+    'files.refresh': '重新加载',
+    'files.folderLabel': '文件夹',
+    'files.search.placeholder': '搜索文件…',
+    'files.empty': '拖拽文件夹到此处，或点击「选择文件夹」',
+    'files.emptyDrop': '松开以加载此文件夹中的 Markdown 文档',
+    'files.documents': '个文档',
+    'files.openFailed': '无法读取文件',
+    'files.noFolderApi': '当前浏览器不支持文件夹选择，请直接拖拽文件夹到窗口',
   };
 
   // 导出

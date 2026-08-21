@@ -68,6 +68,11 @@
   let currentSettings = { ...DEFAULT_SETTINGS };
   let tocItems = [];
   let isRendered = false;
+  let currentFileName = 'Markdown';
+
+  // 文件面板状态（文件列表 + 文件夹拖放）
+  let loadedFolder = null; // { name, source:'picker'|'drop', dirHandle, files:[{name,path,handle,file,entry,text}] }
+  let activeFileIndex = -1;
 
   // ==================== 懒加载基础设施 ====================
 
@@ -939,6 +944,7 @@
       window.location.pathname.split('/').pop() || 'Markdown'
     );
     document.title = fileName + ' - Markdown Viewer Enhanced';
+    currentFileName = fileName;
 
     // 设置 meta 标签
     const meta = document.createElement('meta');
@@ -956,7 +962,7 @@
         <!-- 顶部工具栏 -->
         <div id="md-toolbar" class="md-toolbar">
           <div class="md-toolbar-left">
-            <span class="md-toolbar-title" title="${fileName}"><svg class="md-toolbar-file-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> ${fileName}</span>
+            <span id="md-toolbar-title" class="md-toolbar-title" title="${fileName}"><svg class="md-toolbar-file-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> ${fileName}</span>
           </div>
           <div class="md-toolbar-right">
             <button id="btn-toggle-toc" class="md-toolbar-btn" title="${t('toolbar.toc.title')}">${t('toolbar.toc')}</button>
@@ -972,6 +978,10 @@
           <aside id="md-toc-sidebar" class="md-toc-sidebar toc-${currentSettings.tocPosition} ${currentSettings.showToc ? 'visible' : 'hidden'}">
             <!-- 顶部操作栏 -->
             <div class="sidebar-tabs">
+              <div class="sidebar-tabbar">
+                <button class="sidebar-tab active" data-panel="toc" data-i18n="sidebar.tab.toc">${t('sidebar.tab.toc')}</button>
+                <button class="sidebar-tab" data-panel="files" data-i18n="sidebar.tab.files">${t('sidebar.tab.files')}</button>
+              </div>
               <span class="sidebar-tab-spacer"></span>
               <div class="sidebar-tab-actions">
                 <button id="btn-sidebar-menu" class="sidebar-action-btn" title="${t('sidebar.menu.title')}">⋯</button>
@@ -990,6 +1000,18 @@
               </div>
               <nav id="md-toc-nav" class="md-toc-nav"></nav>
               <div id="md-toc-no-result" class="md-toc-no-result" style="display:none;">${t('sidebar.toc.search.noResult')}</div>
+            </div>
+            <!-- 文件面板 -->
+            <div id="sidebar-panel-files" class="sidebar-panel" style="display:none;">
+              <div class="files-toolbar">
+                <button id="btn-select-folder" class="files-select-btn" title="${t('files.selectFolder.title')}">📁 ${t('files.selectFolder')}</button>
+                <button id="btn-files-refresh" class="files-refresh-btn" title="${t('files.refresh')}">⟳</button>
+              </div>
+              <div id="files-folder-name" class="files-folder-name"></div>
+              <input id="files-search-input" class="files-search-input" type="text" data-i18n-placeholder="files.search.placeholder" placeholder="${t('files.search.placeholder')}" />
+              <div id="files-count" class="files-count"></div>
+              <div id="files-list" class="files-list"></div>
+              <div id="files-empty" class="files-empty">${t('files.empty')}</div>
             </div>
             <!-- 侧边栏拖拽调整宽度的手柄 -->
             <div id="sidebar-resize-handle" class="sidebar-resize-handle" style="${currentSettings.showToc ? '' : 'display:none;'}"></div>
@@ -1704,6 +1726,358 @@ console.<span class="hljs-title function_">log</span>(<span class="hljs-string">
     `;
   }
 
+  // ==================== 文件面板（文件列表 + 文件夹拖放）====================
+
+  const FOLDER_DB_NAME = 'mdve_folder_db';
+  const FOLDER_DB_STORE = 'folder_state';
+
+  function openFolderDB() {
+    return new Promise((resolve, reject) => {
+      if (typeof indexedDB === 'undefined') { reject(new Error('no indexedDB')); return; }
+      const req = indexedDB.open(FOLDER_DB_NAME, 1);
+      req.onupgradeneeded = () => { req.result.createObjectStore(FOLDER_DB_STORE); };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  function idbPut(key, value) {
+    return openFolderDB().then(db => new Promise((resolve, reject) => {
+      const tx = db.transaction(FOLDER_DB_STORE, 'readwrite');
+      tx.objectStore(FOLDER_DB_STORE).put(value, key);
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror = () => { db.close(); reject(tx.error); };
+    }));
+  }
+
+  function idbGet(key) {
+    return openFolderDB().then(db => new Promise((resolve, reject) => {
+      const tx = db.transaction(FOLDER_DB_STORE, 'readonly');
+      const r = tx.objectStore(FOLDER_DB_STORE).get(key);
+      r.onsuccess = () => { db.close(); resolve(r.result || null); };
+      r.onerror = () => { db.close(); reject(r.error); };
+    }));
+  }
+
+  /**
+   * 递归遍历 File System Access API 目录句柄，收集所有受支持的 Markdown 文件
+   */
+  async function walkDirectoryHandle(dirHandle, relPath, out) {
+    for await (const [name, handle] of dirHandle.entries()) {
+      const childPath = relPath ? relPath + '/' + name : name;
+      if (handle.kind === 'directory') {
+        await walkDirectoryHandle(handle, childPath, out);
+      } else if (handle.kind === 'file' && SUPPORTED_FILE_EXTENSIONS.test(name)) {
+        out.push({ name, path: childPath, handle, file: null, entry: null, text: null });
+      }
+    }
+  }
+
+  /**
+   * 读取拖放目录条目（FileSystemEntry）的所有 Markdown 文件
+   */
+  function readAllEntries(reader) {
+    return new Promise((resolve, reject) => {
+      const all = [];
+      const readBatch = () => {
+        reader.readEntries((batch) => {
+          if (batch.length === 0) { resolve(all); return; }
+          all.push(...batch);
+          readBatch();
+        }, (err) => reject(err));
+      };
+      readBatch();
+    });
+  }
+
+  async function walkDropEntry(entry, parentPath, out) {
+    if (entry.isFile) {
+      const name = entry.name;
+      if (SUPPORTED_FILE_EXTENSIONS.test(name)) {
+        out.push({ name, path: parentPath ? parentPath + '/' + name : name, handle: null, file: null, entry, text: null });
+      }
+      return;
+    }
+    if (entry.isDirectory) {
+      const reader = entry.createReader();
+      const entries = await readAllEntries(reader);
+      const myPath = parentPath ? parentPath + '/' + entry.name : entry.name;
+      for (const child of entries) {
+        await walkDropEntry(child, myPath, out);
+      }
+    }
+  }
+
+  function getFileFromEntry(fileEntry) {
+    return new Promise((resolve, reject) => fileEntry.file(resolve, reject));
+  }
+
+  async function getEntryText(entry) {
+    if (entry.text != null) return entry.text;
+    let file;
+    try {
+      if (entry.handle) file = await entry.handle.getFile();
+      else if (entry.file) file = entry.file;
+      else if (entry.entry) file = await getFileFromEntry(entry.entry);
+      else return '';
+      const text = await file.text();
+      entry.text = text;
+      entry._size = file.size;
+      entry._lastModified = file.lastModified;
+      return text;
+    } catch (e) {
+      console.error('[MD Viewer] 读取文件失败:', entry.path, e);
+      return '';
+    }
+  }
+
+  async function loadAllTexts(folder) {
+    for (const f of folder.files) {
+      try { await getEntryText(f); } catch (e) { f.text = ''; }
+    }
+  }
+
+  /**
+   * 通过「选择文件夹」对话框加载文件夹（File System Access API）
+   */
+  async function openFolderViaPicker() {
+    if (!window.showDirectoryPicker) {
+      alert(t('files.noFolderApi'));
+      return;
+    }
+    try {
+      const dirHandle = await window.showDirectoryPicker();
+      const files = [];
+      await walkDirectoryHandle(dirHandle, '', files);
+      loadedFolder = { name: dirHandle.name, source: 'picker', dirHandle, files };
+      await loadAllTexts(loadedFolder);
+      renderFilesPanel();
+      persistFolderState();
+      switchSidebarTab('files');
+    } catch (e) {
+      if (e && e.name === 'AbortError') return; // 用户取消
+      console.error('[MD Viewer] 选择文件夹失败:', e);
+    }
+  }
+
+  /**
+   * 通过拖放文件夹加载
+   */
+  async function openFolderViaDrop(directoryEntry) {
+    const files = [];
+    await walkDropEntry(directoryEntry, '', files);
+    loadedFolder = { name: directoryEntry.name, source: 'drop', dirHandle: null, files };
+    await loadAllTexts(loadedFolder);
+    renderFilesPanel();
+    persistFolderState();
+    switchSidebarTab('files');
+  }
+
+  /**
+   * 重新加载当前文件夹（仅 picker 可重新遍历；drop 使用缓存）
+   */
+  async function refreshFolder() {
+    if (!loadedFolder) return;
+    if (loadedFolder.source === 'picker' && loadedFolder.dirHandle) {
+      loadedFolder.files = [];
+      await walkDirectoryHandle(loadedFolder.dirHandle, '', loadedFolder.files);
+      await loadAllTexts(loadedFolder);
+    }
+    renderFilesPanel();
+    persistFolderState();
+  }
+
+  /**
+   * 渲染文件列表面板
+   */
+  function renderFilesPanel() {
+    const folderNameEl = document.getElementById('files-folder-name');
+    const listEl = document.getElementById('files-list');
+    const emptyEl = document.getElementById('files-empty');
+    const countEl = document.getElementById('files-count');
+    if (!listEl) return;
+
+    if (!loadedFolder || loadedFolder.files.length === 0) {
+      if (folderNameEl) folderNameEl.textContent = '';
+      if (emptyEl) emptyEl.style.display = '';
+      if (countEl) countEl.textContent = '';
+      listEl.innerHTML = '';
+      return;
+    }
+
+    if (emptyEl) emptyEl.style.display = 'none';
+    if (folderNameEl) folderNameEl.textContent = t('files.folderLabel') + '：' + loadedFolder.name;
+    if (countEl) countEl.textContent = loadedFolder.files.length + ' ' + t('files.documents');
+
+    const searchEl = document.getElementById('files-search-input');
+    const term = ((searchEl && searchEl.value) || '').toLowerCase();
+    const frag = document.createDocumentFragment();
+    loadedFolder.files.forEach((f, idx) => {
+      if (term && !f.path.toLowerCase().includes(term)) return;
+      const item = document.createElement('div');
+      item.className = 'file-item' + (idx === activeFileIndex ? ' active' : '');
+      item.dataset.index = String(idx);
+      item.title = f.path;
+      item.innerHTML = '<span class="file-icon">📄</span><span class="file-meta"><span class="file-name">' + escapeHtml(f.name) + '</span><span class="file-path">' + escapeHtml(f.path) + '</span></span>';
+      frag.appendChild(item);
+    });
+    listEl.innerHTML = '';
+    listEl.appendChild(frag);
+  }
+
+  /**
+   * 在页内切换显示某个文档（不打开新标签页）
+   */
+  async function switchToFile(entry) {
+    try {
+      const text = await getEntryText(entry);
+      window.__MD_RAW_SOURCE__ = text;
+      currentFileName = entry.name;
+      updateToolbarTitle(entry.name);
+      stopFileWatcher();
+      await reRenderContent();
+      const rawEl = document.getElementById('md-raw-content');
+      if (rawEl) rawEl.textContent = text;
+      const c = getScrollContainer();
+      if (c) c.scrollTop = 0; else window.scrollTo(0, 0);
+      activeFileIndex = loadedFolder ? loadedFolder.files.indexOf(entry) : -1;
+      updateFileListActive();
+      persistFolderState();
+    } catch (e) {
+      console.error('[MD Viewer] 切换文档失败:', e);
+      alert(t('files.openFailed') + ': ' + (e && e.message ? e.message : e));
+    }
+  }
+
+  function updateToolbarTitle(name) {
+    const el = document.getElementById('md-toolbar-title');
+    if (el) { el.textContent = name; el.title = name; }
+    document.title = name + ' - Markdown Viewer Enhanced';
+  }
+
+  function updateFileListActive() {
+    const listEl = document.getElementById('files-list');
+    if (!listEl) return;
+    listEl.querySelectorAll('.file-item').forEach(item => {
+      item.classList.toggle('active', parseInt(item.dataset.index, 10) === activeFileIndex);
+    });
+  }
+
+  function switchSidebarTab(panel) {
+    document.querySelectorAll('.sidebar-tab').forEach(b => {
+      b.classList.toggle('active', b.dataset.panel === panel);
+    });
+    const tocPanel = document.getElementById('sidebar-panel-toc');
+    const filesPanel = document.getElementById('sidebar-panel-files');
+    if (tocPanel) tocPanel.style.display = panel === 'toc' ? '' : 'none';
+    if (filesPanel) filesPanel.style.display = panel === 'files' ? '' : 'none';
+  }
+
+  /**
+   * 文件夹拖放：在窗口中拖入文件夹即加载其 Markdown 列表
+   */
+  function setupFolderDragDrop() {
+    if (!document.getElementById('md-folder-drop-overlay')) {
+      const ov = document.createElement('div');
+      ov.id = 'md-folder-drop-overlay';
+      ov.className = 'md-folder-drop-overlay';
+      ov.style.display = 'none';
+      ov.innerHTML = '<div class="md-folder-drop-inner"><div class="md-folder-drop-icon">📂</div><div class="md-folder-drop-text">' + t('files.emptyDrop') + '</div></div>';
+      const app = document.getElementById('md-viewer-app');
+      (app || document.body).appendChild(ov);
+    }
+    const overlay = document.getElementById('md-folder-drop-overlay');
+    let dragDepth = 0;
+
+    const hasFiles = (e) => !!(e.dataTransfer && Array.from(e.dataTransfer.types || []).indexOf('Files') !== -1);
+
+    window.addEventListener('dragenter', (e) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      dragDepth++;
+      if (overlay) overlay.style.display = 'flex';
+    });
+    window.addEventListener('dragover', (e) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    });
+    window.addEventListener('dragleave', (e) => {
+      if (!hasFiles(e)) return;
+      dragDepth = Math.max(0, dragDepth - 1);
+      if (dragDepth === 0 && overlay) overlay.style.display = 'none';
+    });
+    window.addEventListener('drop', (e) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      dragDepth = 0;
+      if (overlay) overlay.style.display = 'none';
+      handleDrop(e);
+    });
+  }
+
+  function handleDrop(e) {
+    const dt = e.dataTransfer;
+    if (!dt) return;
+    let dirEntry = null;
+    let singleFileEntry = null;
+    if (dt.items && dt.items.length && dt.items[0].webkitGetAsEntry) {
+      for (let i = 0; i < dt.items.length; i++) {
+        const item = dt.items[i];
+        const entry = item.webkitGetAsEntry && item.webkitGetAsEntry();
+        if (!entry) continue;
+        if (entry.isDirectory) { dirEntry = entry; break; }
+        else if (entry.isFile && !singleFileEntry) singleFileEntry = entry;
+      }
+    }
+    if (dirEntry) {
+      openFolderViaDrop(dirEntry);
+    } else if (singleFileEntry) {
+      const name = singleFileEntry.name;
+      if (SUPPORTED_FILE_EXTENSIONS.test(name)) {
+        getFileFromEntry(singleFileEntry).then((file) => {
+          loadedFolder = { name: '(file)', source: 'drop', dirHandle: null, files: [{ name, path: name, handle: null, file, entry: singleFileEntry, text: null }] };
+          renderFilesPanel();
+          switchToFile(loadedFolder.files[0]);
+        }).catch((err) => console.error('[MD Viewer] 读取拖放文件失败:', err));
+      }
+    }
+  }
+
+  /**
+   * 持久化当前文件夹状态到 IndexedDB（含文件文本缓存），刷新页面后可恢复
+   */
+  async function persistFolderState() {
+    if (!loadedFolder) return;
+    let total = 0;
+    for (const f of loadedFolder.files) total += (f.text ? f.text.length : 0);
+    if (total > 20 * 1024 * 1024) { console.warn('[MD Viewer] 文件夹过大，跳过持久化'); return; }
+    const data = {
+      source: loadedFolder.source,
+      name: loadedFolder.name,
+      activePath: activeFileIndex >= 0 ? loadedFolder.files[activeFileIndex].path : null,
+      files: loadedFolder.files.map(f => ({ name: f.name, path: f.path, text: f.text })),
+    };
+    try { await idbPut('current', data); } catch (e) { console.warn('[MD Viewer] 持久化失败:', e); }
+  }
+
+  /**
+   * 从 IndexedDB 恢复上次加载的文件夹
+   */
+  async function restoreFolderState() {
+    let data;
+    try { data = await idbGet('current'); } catch (e) { return; }
+    if (!data || !data.files || data.files.length === 0) return;
+    loadedFolder = {
+      name: data.name,
+      source: data.source,
+      dirHandle: null,
+      files: data.files.map(f => ({ name: f.name, path: f.path, handle: null, file: null, entry: null, text: f.text })),
+    };
+    activeFileIndex = data.activePath != null ? loadedFolder.files.findIndex(f => f.path === data.activePath) : -1;
+    renderFilesPanel();
+  }
+
   // ==================== Mermaid 渲染 ====================
 
   /**
@@ -2144,6 +2518,33 @@ console.<span class="hljs-title function_">log</span>(<span class="hljs-string">
         }
       });
     }
+
+    // ========== 文件面板：页签切换 ==========
+    document.querySelectorAll('.sidebar-tab').forEach(tab => {
+      tab.addEventListener('click', () => switchSidebarTab(tab.dataset.panel));
+    });
+
+    // ========== 文件面板：选择文件夹 / 刷新 / 搜索 / 列表点击 ==========
+    const btnSelectFolder = document.getElementById('btn-select-folder');
+    if (btnSelectFolder) btnSelectFolder.addEventListener('click', openFolderViaPicker);
+
+    const btnFilesRefresh = document.getElementById('btn-files-refresh');
+    if (btnFilesRefresh) btnFilesRefresh.addEventListener('click', refreshFolder);
+
+    const filesSearchInput = document.getElementById('files-search-input');
+    if (filesSearchInput) filesSearchInput.addEventListener('input', () => renderFilesPanel());
+
+    const filesList = document.getElementById('files-list');
+    if (filesList) filesList.addEventListener('click', (e) => {
+      const item = e.target.closest('.file-item');
+      if (!item || !loadedFolder) return;
+      const idx = parseInt(item.dataset.index, 10);
+      const entry = loadedFolder.files[idx];
+      if (entry) switchToFile(entry);
+    });
+
+    // ========== 文件夹拖放 ==========
+    setupFolderDragDrop();
 
     // 目录搜索框事件绑定
     const tocSearchInput = document.getElementById('md-toc-search-input');
@@ -3762,6 +4163,9 @@ console.<span class="hljs-title function_">log</span>(<span class="hljs-string">
     // 绑定事件
     bindEvents();
 
+    // 恢复上次加载的文件夹（IndexedDB 持久化）
+    restoreFolderState().catch(() => {});
+
     // 监听系统主题变化
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
       if (currentSettings.theme === 'auto') {
@@ -3848,6 +4252,18 @@ console.<span class="hljs-title function_">log</span>(<span class="hljs-string">
         // fetch 失败时静默忽略
       }
     }, POLL_INTERVAL);
+  }
+
+  /**
+   * 停止文件变更检测轮询（切换文件夹内文档时调用，避免误报原文件变更）
+   */
+  function stopFileWatcher() {
+    if (fileWatcherTimer) {
+      clearInterval(fileWatcherTimer);
+      fileWatcherTimer = null;
+    }
+    const badge = document.getElementById('md-file-changed-badge');
+    if (badge) badge.style.display = 'none';
   }
 
   // 启动

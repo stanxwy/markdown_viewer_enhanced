@@ -1760,6 +1760,17 @@ console.<span class="hljs-title function_">log</span>(<span class="hljs-string">
   }
 
   /**
+   * 按文件名（区分数字的自然排序）对文件列表排序；文件名相同则按路径排序
+   */
+  function sortFilesByName(files) {
+    files.sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }) ||
+      a.path.localeCompare(b.path, undefined, { numeric: true })
+    );
+    return files;
+  }
+
+  /**
    * 递归遍历 File System Access API 目录句柄，收集所有受支持的 Markdown 文件
    */
   async function walkDirectoryHandle(dirHandle, relPath, out) {
@@ -1849,6 +1860,7 @@ console.<span class="hljs-title function_">log</span>(<span class="hljs-string">
       const dirHandle = await window.showDirectoryPicker();
       const files = [];
       await walkDirectoryHandle(dirHandle, '', files);
+      sortFilesByName(files);
       loadedFolder = { name: dirHandle.name, source: 'picker', dirHandle, files };
       await loadAllTexts(loadedFolder);
       renderFilesPanel();
@@ -1866,6 +1878,7 @@ console.<span class="hljs-title function_">log</span>(<span class="hljs-string">
   async function openFolderViaDrop(directoryEntry) {
     const files = [];
     await walkDropEntry(directoryEntry, '', files);
+    sortFilesByName(files);
     loadedFolder = { name: directoryEntry.name, source: 'drop', dirHandle: null, files };
     await loadAllTexts(loadedFolder);
     renderFilesPanel();
@@ -1881,6 +1894,7 @@ console.<span class="hljs-title function_">log</span>(<span class="hljs-string">
     if (loadedFolder.source === 'picker' && loadedFolder.dirHandle) {
       loadedFolder.files = [];
       await walkDirectoryHandle(loadedFolder.dirHandle, '', loadedFolder.files);
+      sortFilesByName(loadedFolder.files);
       await loadAllTexts(loadedFolder);
     }
     renderFilesPanel();
@@ -2074,6 +2088,7 @@ console.<span class="hljs-title function_">log</span>(<span class="hljs-string">
       dirHandle: null,
       files: data.files.map(f => ({ name: f.name, path: f.path, handle: null, file: null, entry: null, text: f.text })),
     };
+    sortFilesByName(loadedFolder.files);
     activeFileIndex = data.activePath != null ? loadedFolder.files.findIndex(f => f.path === data.activePath) : -1;
     renderFilesPanel();
   }

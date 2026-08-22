@@ -2061,6 +2061,14 @@ console.<span class="hljs-title function_">log</span>(<span class="hljs-string">
   /**
    * 持久化当前文件夹状态到 IndexedDB（含文件文本缓存），刷新页面后可恢复
    */
+  /**
+   * 每个 markdown 页面（标签页）各自记住自己所在的文件夹，故用页面 URL 作为持久化键，
+   * 避免多个标签页共享同一个固定键而互相覆盖。
+   */
+  function getPageKey() {
+    return 'page:' + (window.location.href || 'unknown');
+  }
+
   async function persistFolderState() {
     if (!loadedFolder) return;
     let total = 0;
@@ -2072,15 +2080,15 @@ console.<span class="hljs-title function_">log</span>(<span class="hljs-string">
       activePath: activeFileIndex >= 0 ? loadedFolder.files[activeFileIndex].path : null,
       files: loadedFolder.files.map(f => ({ name: f.name, path: f.path, text: f.text })),
     };
-    try { await idbPut('current', data); } catch (e) { console.warn('[MD Viewer] 持久化失败:', e); }
+    try { await idbPut(getPageKey(), data); } catch (e) { console.warn('[MD Viewer] 持久化失败:', e); }
   }
 
   /**
-   * 从 IndexedDB 恢复上次加载的文件夹
+   * 从 IndexedDB 恢复本页面上次加载的文件夹
    */
   async function restoreFolderState() {
     let data;
-    try { data = await idbGet('current'); } catch (e) { return; }
+    try { data = await idbGet(getPageKey()); } catch (e) { return; }
     if (!data || !data.files || data.files.length === 0) return;
     loadedFolder = {
       name: data.name,

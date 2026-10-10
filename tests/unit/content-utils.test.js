@@ -1,6 +1,6 @@
 /**
  * 单元测试：content.js 工具函数
- * 覆盖：generateId, escapeHtml, debounce, isMarkdownFile 等
+ * 覆盖：generateId, escapeHtml, debounce, isMarkdownFile、splitFileUrl 等
  */
 
 const {
@@ -10,6 +10,8 @@ const {
   DEFAULT_SETTINGS,
   MD_EXTENSIONS,
   SUPPORTED_FILE_EXTENSIONS,
+  splitFileUrl,
+  getParentDirUrl,
 } = require('../../content/content.js');
 
 // =====================================================
@@ -211,6 +213,43 @@ describe('BT-content-utils.6 DEFAULT_SETTINGS 完整性', () => {
     expect(DEFAULT_SETTINGS.lineHeight).toBeLessThanOrEqual(3.0);
     expect(DEFAULT_SETTINGS.maxWidth).toBeGreaterThanOrEqual(600);
     expect(DEFAULT_SETTINGS.maxWidth).toBeLessThanOrEqual(1800);
+  });
+});
+
+// =====================================================
+//  BT-content-utils.7 splitFileUrl / getParentDirUrl 测试
+//  对应「文件」面板自动加载当前文档所在目录
+// =====================================================
+describe('BT-content-utils.7 splitFileUrl / getParentDirUrl', () => {
+  test('7.1 拆分 md 文件 URL', () => {
+    expect(splitFileUrl('file:///D:/docs/a.md')).toEqual({
+      dirUrl: 'file:///D:/docs/',
+      name: 'a.md',
+    });
+  });
+
+  test('7.2 拆分目录 URL 时返回其上级与自身名称', () => {
+    expect(splitFileUrl('file:///D:/docs/')).toEqual({
+      dirUrl: 'file:///D:/',
+      name: 'docs',
+    });
+  });
+
+  test('7.3 中文文件名解码', () => {
+    expect(splitFileUrl('file:///D:/docs/' + encodeURIComponent('中文 文档.md')).name)
+      .toBe('中文 文档.md');
+  });
+
+  test('7.4 忽略查询串与 hash', () => {
+    expect(splitFileUrl('file:///D:/docs/a.md?v=1#top').name).toBe('a.md');
+  });
+
+  test('7.5 取上级目录', () => {
+    expect(getParentDirUrl('file:///D:/docs/')).toBe('file:///D:/');
+  });
+
+  test('7.6 根目录没有上级', () => {
+    expect(getParentDirUrl('file:///')).toBeNull();
   });
 });
 

@@ -293,6 +293,11 @@
     'files.documents': 'documents',
     'files.openFailed': 'Failed to read file',
     'files.noFolderApi': 'This browser does not support folder picker. Please drag a folder into the window.',
+    'files.parent': 'Parent folder',
+    'files.loading': 'Reading current folder…',
+    'files.loadFailed': 'Failed to read the folder. Use "Select Folder" or drag a folder into the window.',
+    'files.listingUnavailable': 'Auto-listing is unsupported in this browser. Use "Select Folder".',
+    'files.noPermission': 'Enable "Allow access to file URLs" on the extension details page to list folders automatically.',
   };
 
   // Export

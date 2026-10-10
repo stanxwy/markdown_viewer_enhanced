@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ---
 
+## [Unreleased]
+
+### Added
+- **File Panel Auto-Load**: Switching to the **Files** tab on a local (`file://`) document now automatically lists the Markdown files in that document's own folder — no folder picker needed. The list is read by the background service worker: a content script's `fetch`/`XHR` to `file://` is rejected by Chrome, but the extension context can `fetch` a `file://` directory URL and parse Chrome's generated directory index page (`addRow("name","url",isDir,size,…)`).
+- **Folder Navigation**: Sub-folders show up as `📁` entries and can be opened in place, with a **Parent folder** row (`⬆`) to move back up. Documents open in-page (no new tab) and the document currently being viewed is highlighted in the list.
+- **Picker Remembers Last Folder**: The folder picker now passes a fixed `id` (`mdve-folder-picker`), so Chrome reopens it in the directory selected last instead of always falling back to the default (Documents).
+
+### Notes
+- Auto-listing needs the extension's `file://` access ("Allow access to file URLs" on the extension details page). If it is off, the panel shows a hint instead of failing silently; the existing "Select Folder" / drag-and-drop flow remains as the fallback.
+- Chrome's directory index page is an internal implementation detail. Its parser is defensive: if the format ever changes, the panel degrades to the manual flow.
+
+---
+
 ## [1.3.2] - 2026-06-13
 
 ### Fixed

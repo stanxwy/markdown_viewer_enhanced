@@ -227,6 +227,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
       return true;
 
+    case 'LIST_DIR':
+      // 读取 file:// 目录索引页（Chrome 为 file:// 目录自动生成的列表页），
+      // 供侧栏「文件」面板自动列出当前文档所在目录的内容。
+      // 内容脚本内 fetch/XHR 到 file:// 会被拒绝，必须在扩展上下文中读取。
+      listDirectory(message.dirUrl).then(sendResponse);
+      return true;
+
+    case 'READ_FILE':
+      // 读取 file:// 文档正文（同上，必须在扩展上下文中读取）
+      readTextFile(message.fileUrl).then(sendResponse);
+      return true;
+
     default:
       return false;
   }
@@ -255,6 +267,95 @@ async function requestFilePermission() {
   }
 }
 
+// ==================== 本地目录读取（侧栏「文件」面板自动加载）====================
+
+/**
+ * Chrome 为 file:// 目录生成的索引页中的条目行，形如：
+ *   addRow("中文 文档.md","%E4%B8%AD%E6%96%87%20%E6%96%87%E6%A1%A3.md",0,3,"3 B",1791609372,"10/10/26, 1:16:12 PM");
+ * 参数依次为：显示名、URL 编码名、是否目录(1/0)、字节数、大小串、修改时间、时间串
+ */
+const DIR_ROW_RE = /addRow\(\s*"((?:[^"\\]|\\.)*)"\s*,\s*"((?:[^"\\]|\\.)*)"\s*,\s*(\d+)\s*,\s*(\d+)/g;
+
+/**
+ * 解析目录索引 HTML，返回条目数组（已过滤 . 与 ..）
+ * @param {string} html - 目录索引页源码
+ * @returns {{name:string, href:string, isDir:boolean, size:number}[]}
+ */
+function parseDirListing(html) {
+  const out = [];
+  if (!html) return out;
+  const re = new RegExp(DIR_ROW_RE.source, 'g');
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    const href = m[2];
+    if (!href || href === '.' || href === '..') continue; // 上级目录由上层单独处理
+    let name = m[1];
+    try { name = decodeURIComponent(href); } catch (e) { /* 解码失败时保留显示名 */ }
+    out.push({ name, href, isDir: m[3] === '1', size: parseInt(m[4], 10) || 0 });
+  }
+  return out;
+}
+
+/**
+ * 规范化目录 URL：仅接受 file:// 且以 / 结尾
+ * @param {string} dirUrl
+ * @returns {string} 规范化后的 URL，非法输入返回 ''
+ */
+function normalizeDirUrl(dirUrl) {
+  if (!dirUrl) return '';
+  const clean = String(dirUrl).split('#')[0].split('?')[0];
+  if (!clean.startsWith('file:')) return '';
+  return clean.endsWith('/') ? clean : clean + '/';
+}
+
+/**
+ * 读取 file:// 目录下的条目。
+ * 依赖 Chrome 的目录索引页（属内部实现，格式可能随版本变化），故需容错降级。
+ * @param {string} dirUrl - 目录 URL（结尾是否带 / 均可）
+ */
+async function listDirectory(dirUrl) {
+  const url = normalizeDirUrl(dirUrl);
+  if (!url) return { ok: false, error: 'bad-url' };
+  try {
+    const res = await fetch(url);
+    // 注意：file:// 响应没有 HTTP 状态码（status 常为 0、ok 为 false），只能判断正文
+    const html = await res.text();
+    const entries = parseDirListing(html);
+    if (entries.length === 0 && html.indexOf('addRow(') === -1) {
+      // 索引页格式已变化，或该目录不可达
+      return { ok: false, error: 'listing-unavailable' };
+    }
+    return { ok: true, dirUrl: url, entries };
+  } catch (err) {
+    const hasPerm = await hasFilePermission();
+    return {
+      ok: false,
+      error: hasPerm ? 'read-failed' : 'no-permission',
+      message: (err && err.message) || String(err),
+    };
+  }
+}
+
+/**
+ * 读取 file:// 文档正文
+ * @param {string} fileUrl
+ */
+async function readTextFile(fileUrl) {
+  if (!fileUrl || !String(fileUrl).startsWith('file:')) return { ok: false, error: 'bad-url' };
+  try {
+    const res = await fetch(fileUrl);
+    const text = await res.text();
+    return { ok: true, text: text || '' };
+  } catch (err) {
+    const hasPerm = await hasFilePermission();
+    return {
+      ok: false,
+      error: hasPerm ? 'read-failed' : 'no-permission',
+      message: (err && err.message) || String(err),
+    };
+  }
+}
+
 
 console.log('[MD Viewer Enhanced] Background service worker 已启动');
 
@@ -264,5 +365,9 @@ if (typeof module !== 'undefined' && module.exports) {
     DEFAULT_SETTINGS,
     isMarkdownUrl,
     isTextContentType,
+    parseDirListing,
+    normalizeDirUrl,
+    listDirectory,
+    readTextFile,
   };
 }

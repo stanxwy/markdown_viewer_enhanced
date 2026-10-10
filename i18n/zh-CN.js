@@ -293,6 +293,11 @@
     'files.documents': '个文档',
     'files.openFailed': '无法读取文件',
     'files.noFolderApi': '当前浏览器不支持文件夹选择，请直接拖拽文件夹到窗口',
+    'files.parent': '返回上级',
+    'files.loading': '正在读取当前目录…',
+    'files.loadFailed': '读取目录失败，可改用「选择文件夹」或把文件夹拖到窗口',
+    'files.listingUnavailable': '当前浏览器不支持自动读取目录，请用「选择文件夹」',
+    'files.noPermission': '需先在扩展详情页开启「允许访问文件网址」，才能自动读取目录',
   };
 
   // 导出

@@ -70,9 +70,10 @@
   let isRendered = false;
   let currentFileName = 'Markdown';
 
-  // 文件面板状态（文件列表 + 文件夹拖放）
-  let loadedFolder = null; // { name, source:'picker'|'drop', dirHandle, files:[{name,path,handle,file,entry,text}] }
+  // 文件面板状态（文件列表 + 文件夹拖放 + 当前目录自动加载）
+  let loadedFolder = null; // { name, source:'picker'|'drop'|'dir', dirHandle, dirUrl, parentUrl, files:[{name,path,url,isDir,handle,file,entry,text}] }
   let activeFileIndex = -1;
+  let autoLoadedDirUrl = null; // 已尝试自动加载过的目录 URL，避免重复请求
 
   // ==================== 懒加载基础设施 ====================
 
@@ -1010,6 +1011,7 @@
               <div id="files-folder-name" class="files-folder-name"></div>
               <input id="files-search-input" class="files-search-input" type="text" data-i18n-placeholder="files.search.placeholder" placeholder="${t('files.search.placeholder')}" />
               <div id="files-count" class="files-count"></div>
+              <div id="files-status" class="files-status" style="display:none;"></div>
               <div id="files-list" class="files-list"></div>
               <div id="files-empty" class="files-empty">${t('files.empty')}</div>
             </div>
@@ -1830,6 +1832,14 @@ console.<span class="hljs-title function_">log</span>(<span class="hljs-string">
       if (entry.handle) file = await entry.handle.getFile();
       else if (entry.file) file = entry.file;
       else if (entry.entry) file = await getFileFromEntry(entry.entry);
+      else if (entry.url) {
+        // 目录来源：内容脚本内无法读取 file://，交由后台读取
+        const resp = await sendRuntimeMessage({ type: 'READ_FILE', fileUrl: entry.url });
+        if (!resp || !resp.ok) throw new Error((resp && (resp.message || resp.error)) || 'read failed');
+        entry.text = typeof resp.text === 'string' ? resp.text : '';
+        entry._size = entry.text.length;
+        return entry.text;
+      }
       else return '';
       const text = await file.text();
       entry.text = text;
@@ -1849,6 +1859,130 @@ console.<span class="hljs-title function_">log</span>(<span class="hljs-string">
   }
 
   /**
+   * 向扩展后台发送消息（Promise 封装，失败或超时返回 null）
+   */
+  function sendRuntimeMessage(message) {
+    return new Promise((resolve) => {
+      try {
+        chrome.runtime.sendMessage(message, (response) => resolve(response || null));
+      } catch (e) {
+        resolve(null);
+      }
+    });
+  }
+
+  /**
+   * URL 安全解码（失败时返回原串）
+   */
+  function safeDecode(str) {
+    try { return decodeURIComponent(str); } catch (e) { return str; }
+  }
+
+  /**
+   * 拆分 URL：返回所在目录 URL（以 / 结尾）与末段名称（已解码）
+   * file:///D:/docs/a.md -> { dirUrl: 'file:///D:/docs/', name: 'a.md' }
+   * file:///D:/docs/     -> { dirUrl: 'file:///D:/',     name: 'docs' }
+   */
+  function splitFileUrl(url) {
+    let clean = String(url || '').split('#')[0].split('?')[0];
+    if (clean.endsWith('/')) clean = clean.slice(0, -1);
+    const idx = clean.lastIndexOf('/');
+    return { dirUrl: clean.slice(0, idx + 1), name: safeDecode(clean.slice(idx + 1)) };
+  }
+
+  /**
+   * 目录 URL 的上级目录；已是根目录时返回 null
+   */
+  function getParentDirUrl(dirUrl) {
+    const { dirUrl: parent, name } = splitFileUrl(dirUrl);
+    return name ? parent : null;
+  }
+
+  /**
+   * 显示文件面板状态提示（key 为 i18n key）
+   */
+  function setFilesStatus(key) {
+    const el = document.getElementById('files-status');
+    if (!el) return;
+    el.textContent = typeof t === 'function' ? t(key) : key;
+    el.style.display = '';
+  }
+
+  function hideFilesStatus() {
+    const el = document.getElementById('files-status');
+    if (el) { el.style.display = 'none'; el.textContent = ''; }
+  }
+
+  /**
+   * 将当前页面正在查看的文档在列表中标记为选中
+   */
+  function markCurrentFileActive() {
+    if (!loadedFolder || location.protocol !== 'file:') return -1;
+    const { name } = splitFileUrl(location.href);
+    if (!name) return -1;
+    return loadedFolder.files.findIndex((f) => !f.isDir && f.name === name);
+  }
+
+  /**
+   * 通过 file:// 目录 URL 加载文件列表（后台读取 Chrome 生成的目录索引页）
+   * @param {string} dirUrl - 目录 URL
+   */
+  async function openFolderViaUrl(dirUrl) {
+    const resp = await sendRuntimeMessage({ type: 'LIST_DIR', dirUrl });
+    if (!resp || !resp.ok) {
+      setFilesStatus(
+        (resp && resp.error) === 'no-permission' ? 'files.noPermission'
+          : ((resp && resp.error) === 'listing-unavailable' ? 'files.listingUnavailable' : 'files.loadFailed')
+      );
+      return false;
+    }
+    const files = resp.entries
+      .filter((e) => e.isDir || SUPPORTED_FILE_EXTENSIONS.test(e.name))
+      .map((e) => ({
+        name: e.name,
+        path: e.name,
+        isDir: !!e.isDir,
+        url: resp.dirUrl + e.href,
+        handle: null,
+        file: null,
+        entry: null,
+        text: null,
+      }));
+    // 目录排在前，其余按文件名自然排序
+    files.sort((a, b) => {
+      if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
+      return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+    });
+
+    const { name: folderName } = splitFileUrl(resp.dirUrl);
+    loadedFolder = {
+      name: folderName || resp.dirUrl,
+      source: 'dir',
+      dirHandle: null,
+      dirUrl: resp.dirUrl,
+      parentUrl: getParentDirUrl(resp.dirUrl),
+      files,
+    };
+    activeFileIndex = markCurrentFileActive();
+    hideFilesStatus();
+    renderFilesPanel();
+    persistFolderState();
+    return true;
+  }
+
+  /**
+   * 自动加载当前文档所在目录（仅 file:// 页面、且尚未加载任何文件夹时执行一次）
+   */
+  async function autoLoadCurrentFolder() {
+    if (loadedFolder || location.protocol !== 'file:') return;
+    const { dirUrl } = splitFileUrl(location.href);
+    if (!dirUrl || autoLoadedDirUrl === dirUrl) return;
+    autoLoadedDirUrl = dirUrl;
+    setFilesStatus('files.loading');
+    await openFolderViaUrl(dirUrl);
+  }
+
+  /**
    * 通过「选择文件夹」对话框加载文件夹（File System Access API）
    */
   async function openFolderViaPicker() {
@@ -1857,7 +1991,8 @@ console.<span class="hljs-title function_">log</span>(<span class="hljs-string">
       return;
     }
     try {
-      const dirHandle = await window.showDirectoryPicker();
+      // 固定 id：Chrome 会记住该选择器上次打开的目录，避免每次都退回默认目录
+      const dirHandle = await window.showDirectoryPicker({ id: 'mdve-folder-picker', mode: 'read' });
       const files = [];
       await walkDirectoryHandle(dirHandle, '', files);
       sortFilesByName(files);
@@ -1891,6 +2026,10 @@ console.<span class="hljs-title function_">log</span>(<span class="hljs-string">
    */
   async function refreshFolder() {
     if (!loadedFolder) return;
+    if (loadedFolder.source === 'dir' && loadedFolder.dirUrl) {
+      await openFolderViaUrl(loadedFolder.dirUrl);
+      return;
+    }
     if (loadedFolder.source === 'picker' && loadedFolder.dirHandle) {
       loadedFolder.files = [];
       await walkDirectoryHandle(loadedFolder.dirHandle, '', loadedFolder.files);
@@ -1926,13 +2065,24 @@ console.<span class="hljs-title function_">log</span>(<span class="hljs-string">
     const searchEl = document.getElementById('files-search-input');
     const term = ((searchEl && searchEl.value) || '').toLowerCase();
     const frag = document.createDocumentFragment();
+
+    // 「返回上级」行：仅目录来源（file:// 自动加载）时可用
+    if (loadedFolder.source === 'dir' && loadedFolder.parentUrl) {
+      const up = document.createElement('div');
+      up.className = 'file-item dir-up';
+      up.dataset.up = loadedFolder.parentUrl;
+      up.innerHTML = '<span class="file-icon">⬆</span><span class="file-meta"><span class="file-name">' + escapeHtml(t('files.parent')) + '</span></span>';
+      frag.appendChild(up);
+    }
+
     loadedFolder.files.forEach((f, idx) => {
       if (term && !f.path.toLowerCase().includes(term)) return;
       const item = document.createElement('div');
-      item.className = 'file-item' + (idx === activeFileIndex ? ' active' : '');
+      item.className = 'file-item' + (idx === activeFileIndex ? ' active' : '') + (f.isDir ? ' is-dir' : '');
       item.dataset.index = String(idx);
       item.title = f.path;
-      item.innerHTML = '<span class="file-icon">📄</span><span class="file-meta"><span class="file-name">' + escapeHtml(f.name) + '</span><span class="file-path">' + escapeHtml(f.path) + '</span></span>';
+      const icon = f.isDir ? '📁' : '📄';
+      item.innerHTML = '<span class="file-icon">' + icon + '</span><span class="file-meta"><span class="file-name">' + escapeHtml(f.name) + '</span><span class="file-path">' + escapeHtml(f.path) + '</span></span>';
       frag.appendChild(item);
     });
     listEl.innerHTML = '';
@@ -1985,6 +2135,8 @@ console.<span class="hljs-title function_">log</span>(<span class="hljs-string">
     const filesPanel = document.getElementById('sidebar-panel-files');
     if (tocPanel) tocPanel.style.display = panel === 'toc' ? '' : 'none';
     if (filesPanel) filesPanel.style.display = panel === 'files' ? '' : 'none';
+    // 切到「文件」页签时，若还没加载过文件夹，则自动读取当前文档所在目录
+    if (panel === 'files') autoLoadCurrentFolder();
   }
 
   /**
@@ -2077,8 +2229,10 @@ console.<span class="hljs-title function_">log</span>(<span class="hljs-string">
     const data = {
       source: loadedFolder.source,
       name: loadedFolder.name,
+      dirUrl: loadedFolder.dirUrl || null,
+      parentUrl: loadedFolder.parentUrl || null,
       activePath: activeFileIndex >= 0 ? loadedFolder.files[activeFileIndex].path : null,
-      files: loadedFolder.files.map(f => ({ name: f.name, path: f.path, text: f.text })),
+      files: loadedFolder.files.map(f => ({ name: f.name, path: f.path, isDir: !!f.isDir, url: f.url || null, text: f.text })),
     };
     try { await idbPut(getPageKey(), data); } catch (e) { console.warn('[MD Viewer] 持久化失败:', e); }
   }
@@ -2094,9 +2248,13 @@ console.<span class="hljs-title function_">log</span>(<span class="hljs-string">
       name: data.name,
       source: data.source,
       dirHandle: null,
-      files: data.files.map(f => ({ name: f.name, path: f.path, handle: null, file: null, entry: null, text: f.text })),
+      dirUrl: data.dirUrl || null,
+      parentUrl: data.parentUrl || null,
+      files: data.files.map(f => ({ name: f.name, path: f.path, isDir: !!f.isDir, url: f.url || null, handle: null, file: null, entry: null, text: f.text })),
     };
     sortFilesByName(loadedFolder.files);
+    // 与自动加载保持一致：目录排在前（sort 稳定，同组内保持上面的排序结果）
+    loadedFolder.files.sort((a, b) => (a.isDir === b.isDir ? 0 : (a.isDir ? -1 : 1)));
     activeFileIndex = data.activePath != null ? loadedFolder.files.findIndex(f => f.path === data.activePath) : -1;
     renderFilesPanel();
   }
@@ -2559,11 +2717,23 @@ console.<span class="hljs-title function_">log</span>(<span class="hljs-string">
 
     const filesList = document.getElementById('files-list');
     if (filesList) filesList.addEventListener('click', (e) => {
+      // 「返回上级」
+      const up = e.target.closest('.dir-up');
+      if (up && up.dataset.up) {
+        openFolderViaUrl(up.dataset.up);
+        return;
+      }
       const item = e.target.closest('.file-item');
       if (!item || !loadedFolder) return;
       const idx = parseInt(item.dataset.index, 10);
       const entry = loadedFolder.files[idx];
-      if (entry) switchToFile(entry);
+      if (!entry) return;
+      // 子目录：进入该目录
+      if (entry.isDir) {
+        openFolderViaUrl(entry.url);
+        return;
+      }
+      switchToFile(entry);
     });
 
     // ========== 文件夹拖放 ==========
@@ -4305,6 +4475,8 @@ console.<span class="hljs-title function_">log</span>(<span class="hljs-string">
       isMarkdownFile,
       isFileProtocol,
       getScrollContainer,
+      splitFileUrl,
+      getParentDirUrl,
       // 懒加载
       loadScript,
       _loadedScripts,
